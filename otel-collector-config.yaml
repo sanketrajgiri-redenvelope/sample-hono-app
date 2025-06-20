@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: otel
+  labels:
+    app: opentelemetry
+data:
+  otel-collector-config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          http:
+            endpoint: 0.0.0.0:4318
+          grpc:
+            endpoint: 0.0.0.0:4317
+
+    processors:
+      probabilistic_sampler:
+        sampling_percentage: 20
+      batch:
+        send_batch_max_size: 1000
+        send_batch_size: 100
+        timeout: 10s
+
+    connectors:
+      datadog/connector:
+    exporters:
+      debug:
+        verbosity: detailed
+      datadog:
+        api:
+          site: datadoghq.com
+          key: 98a6ec4f475853e95589a7f449571a70
+
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [datadog/connector]
+        traces/sampling:
+          receivers: [datadog/connector]
+          processors: [batch, probabilistic_sampler]
+          exporters: [debug,datadog]
