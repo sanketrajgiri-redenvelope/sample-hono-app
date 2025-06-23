@@ -1,11 +1,12 @@
-import './tracing'
-import logger  from './logger'
+// import './tracing.js'
+import {logger} from "./logger.js"
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
+import { context, trace } from '@opentelemetry/api'
+
 
 import homeHandler from './handlers/home.js'
 import aboutHandler from './handlers/about.js'
-import { trace } from '@opentelemetry/api'
 
 const app = new Hono()
 
@@ -15,7 +16,10 @@ function getRandomNumber(min: number, max: number) {
 }
 
 // Apply middleware
-app.use('*', logger)
+app.use('*',async (c, next) => {
+  logger.info(`${c.req.method} ${c.req.url}`)
+  await next()
+})
 
 // Define routes
 app.get('/', homeHandler)
@@ -26,7 +30,7 @@ app.get('/debug', async (c) => {
   const span = tracer.startSpan('manual-span')
 
   span.addEvent('handling /debug route')
-
+  logger.info('Debug route accessed', { spanId: span.spanContext().spanId, traceId: span.spanContext().traceId })
   span.end()
 
   return c.text('Debug span sent!')

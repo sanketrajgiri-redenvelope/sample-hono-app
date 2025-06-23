@@ -30,17 +30,21 @@ data:
         verbosity: detailed
       datadog:
         api:
-          site: datadoghq.com
-          key: 98a6ec4f475853e95589a7f449571a70
+          site: ap1.datadoghq.com
+          key: ${env:DD_API_KEY}
 
 
     service:
       pipelines:
+        logs:
+          receivers: [otlp]
+          processors: []
+          exporters: [datadog]
         traces:
           receivers: [otlp]
           processors: [batch]
           exporters: [datadog/connector]
         traces/sampling:
           receivers: [datadog/connector]
-          processors: [batch, probabilistic_sampler]
+          processors: []
           exporters: [debug,datadog]

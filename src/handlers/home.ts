@@ -1,7 +1,8 @@
 import type { Context } from 'hono'
+import {logger} from '../logger.js'
 
 const homeHandler = (c: Context) => {
-  console.log('🏠 Home handler executed')
+logger.info('🏠 Home handler executed')
   return c.text('Welcome to the Hono + TypeScript Home Page!')
 }
 
