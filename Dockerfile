@@ -16,4 +16,4 @@ WORKDIR /app
 COPY --chown=nonroot:nonroot --from=build /app/node_modules ./node_modules
 COPY --chown=nonroot:nonroot --from=build /app/dist ./dist
 USER nonroot
-CMD ["dist/index.js"]
+CMD ["-r", "./dist/tracing.js","dist/index.js"]

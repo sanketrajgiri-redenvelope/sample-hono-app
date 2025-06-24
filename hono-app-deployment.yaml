@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hono-app
+  labels:
+    app: hono-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hono-app
+  template:
+    metadata:
+      labels:
+        app: hono-app
+    spec:
+      containers:
+        - name: hono-app
+          image: hono-app:1.0.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.otel.svc.cluster.local:4318"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.name=hono-app,service.version=1.0.0"
+            - name: NODE_ENV
+              value: "production"
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi

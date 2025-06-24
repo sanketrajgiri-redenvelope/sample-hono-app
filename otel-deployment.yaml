@@ -1,12 +1,11 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  name: otel
   namespace: otel
+  name: otel
   labels:
     app: opentelemetry
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: opentelemetry
@@ -22,6 +21,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /conf
+            - name: varlog
+              mountPath: /var/log
           env:
             - name: DD_API_KEY
               valueFrom:
@@ -29,6 +30,9 @@ spec:
                   name: dd-secret
                   key: DD_API_KEY
       volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
         - name: config
           configMap:
             name: otel-collector-config

@@ -1,33 +1,32 @@
-
-import { resourceFromAttributes } from '@opentelemetry/resources'
-import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions'
-import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node'
-import { HttpInstrumentation } from '@opentelemetry/instrumentation-http'
-import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino'
-import { ConsoleSpanExporter } from '@opentelemetry/sdk-trace-node'
 import * as opentelemetry from '@opentelemetry/sdk-node'
-import { registerInstrumentations } from '@opentelemetry/instrumentation'
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
+import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
+import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino'
+import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
 
+diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 
-const instrumentations = [new HttpInstrumentation(), new PinoInstrumentation()]
-
-
-
-
+// const instrumentations = [new HttpInstrumentation(), new PinoInstrumentation()]
 const sdk = new opentelemetry.NodeSDK({
-  traceExporter,
+  logRecordProcessors: [new opentelemetry.logs.BatchLogRecordProcessor(
+    new OTLPLogExporter({
+      url: (process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318') + '/v1/logs',
+    })
+  )
+  ],
+  // new opentelemetry.logging.ConsoleLogRecordProcessor(),
+  spanProcessors: [new opentelemetry.tracing.SimpleSpanProcessor(new OTLPTraceExporter({
+    url: (process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318') + '/v1/traces',
+  }))],
   instrumentations: [
-    getNodeAutoInstrumentations({
-      // ...,
-      '@opentelemetry/instrumentation-http': {
-        enabled: true,
-      }
+    new PinoInstrumentation({
+      disableLogCorrelation: false,
+      disableLogSending: false,
     }),
   ],
-  resource: resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: 'hono-app',
-  }),
+  // instrumentations: [new HttpInstrumentation(), new PinoInstrumentation()],
 })
+
 
 async function initTracing() {
   try {
@@ -47,4 +46,31 @@ async function initTracing() {
   })
 }
 
+
 initTracing()
+
+
+import { trace, context, SpanStatusCode } from '@opentelemetry/api'
+import type { Context, Next } from 'hono'
+
+
+export function withSpan(handler: (c: Context, next: Next) => Promise<Response> | Response) {
+  return async (c: Context, next: Next): Promise<Response> => {
+    const tracer = trace.getTracer('hono-handler')
+    const spanName = handler.name || 'anonymous-handler'
+
+    return tracer.startActiveSpan(spanName, async (span) => {
+      try {
+        const result = await handler(c, next)
+        span.setStatus({ code: SpanStatusCode.OK }) // 1 = OK
+        return result
+      } catch (err) {
+        span.recordException(err as Error)
+        span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) })
+        throw err
+      } finally {
+        span.end()
+      }
+    })
+  }
+} 

@@ -1,8 +1,8 @@
-// import './tracing.js'
-import {logger} from "./logger.js"
+import {otel} from '@hono/otel'
+import { logger } from './logger.js'
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
-import { context, trace } from '@opentelemetry/api'
+import { trace } from '@opentelemetry/api'
 
 
 import homeHandler from './handlers/home.js'
@@ -16,6 +16,7 @@ function getRandomNumber(min: number, max: number) {
 }
 
 // Apply middleware
+app.use('*', otel())
 app.use('*',async (c, next) => {
   logger.info(`${c.req.method} ${c.req.url}`)
   await next()
@@ -27,19 +28,19 @@ app.get('/about', aboutHandler)
 
 app.get('/debug', async (c) => {
   const tracer = trace.getTracer('debug-tracer')
-  const span = tracer.startSpan('manual-span')
-
-  span.addEvent('handling /debug route')
-  logger.info('Debug route accessed', { spanId: span.spanContext().spanId, traceId: span.spanContext().traceId })
+   tracer.startActiveSpan('manual-span', span => {
+   span.addEvent('handling /debug route')
+  logger.info('Debug route accessed', )
   span.end()
-
-  return c.text('Debug span sent!')
+}) 
+return c.text('Debug route accessed, check logs for details');
 })
 
 app.get('/rolldice', async(c) => {
+  logger.info('Rolldice route accessed')
   return c.text(getRandomNumber(1, 6).toString());
 });
 
 // Start the server
 serve({ fetch: app.fetch, port: 3000 })
-logger.info('🚀 Hono server running at http://localhost:3000')
+logger.info('Hono server running at http://localhost:3000')
